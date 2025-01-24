@@ -1,12 +1,8 @@
-import collections
+from definitions import sScannerObject
 import os.path
 from datetime import datetime
 
-sScannerObject = collections.namedtuple("sScannerObject", "objName objPathId objId objIsDir objSize objTimestamp "
-                                                          "objOtherAttributes")
 
-# not in use as of today
-# sScannerDirDBObject = collections.namedtuple("sScannerDirDBObject", "objName objPathId objId")
 
 class cFilesystemScanner:
     def __init__(self):
@@ -17,10 +13,10 @@ class cFilesystemScanner:
         self.m_DirSequence = 0
         self.m_FileSequence = 0
 
-    def setSearchDirectoryName(self, a_DirName):
+    def setSearchDirectoryName(self, a_DirName: str):
         self.m_SearchDirectoryName = a_DirName
 
-    def setDebugMode(self, a_Mode):
+    def setDebugMode(self, a_Mode: str):
         if a_Mode == "Y":
             self.m_isDebugMode = True
         else:
@@ -47,8 +43,8 @@ class cFilesystemScanner:
         if self.m_isDebugMode:
             print("scanDirectory  :: ", self.m_ObjectList)
 
-    def getDirectoryList(self):
-        return self.m_DirectoryList
-
-    def getFilesList(self):
+    def getScannedItems(self) -> list[sScannerObject]:
+        if self.m_isDebugMode:
+            for tmpItem in self.m_ObjectList:
+                print(tmpItem)
         return self.m_ObjectList
