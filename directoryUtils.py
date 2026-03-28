@@ -7,8 +7,14 @@ class cDirectoryUtils:
         self.sqliteBackendDatabase = None
 
     def setBackendDatabaseName(self, a_DatabaseNameFile: str):
+        """
+        set name of database which keeps harvested metadata
+        :param a_DatabaseNameFile: ladnie to nazwij
+        :return:
+        """
         self.sqliteBackendDatabase = a_DatabaseNameFile
 
+    # returns list of folders (directories) from the metadata database
     def getDirectoryList(self):
         itemExplorer = sqliteItemExplorer(self.sqliteBackendDatabase)
         itemExplorer.sqliteDBConnect()

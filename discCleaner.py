@@ -20,10 +20,17 @@ tmpObject.getScannedItems()
 # getData.sqliteDBConnect()
 # print(getData.getDirectoriesList())
 
+def directoryToList(a_InputDir):
+    dirAsList = a_InputDir.strip("/").split("/")
+    dirAsList.reverse()
+    return dirAsList
+
 test = cDirectoryUtils()
-test.setBackendDatabaseName("/home/piotrek/Pobrane/dbDiskCleaner.db")
+test.setBackendDatabaseName("/Users/piotrbelniak/Google Drive/Mój dysk/dbDiskCleaner.db")
 test.getDirectoryList()
 test.directoryListToDict()
-print(test.getDirectoryPath(993))
+print(test.getDirectoryPath(999))
+print(test.getDirectoryPath(999).strip("/").split("/"))
+print( directoryToList( test.getDirectoryPath(9099)))
 #print(test.directoryList)
 #print(len(test.directoryList))
