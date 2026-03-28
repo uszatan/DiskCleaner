@@ -1,5 +1,7 @@
+import os
 import sqlite3
 from typing import List, Generator, Tuple
+import time
 
 # Import definicji sScannerObject, aby zapewnić spójność typów danych.
 from .definitions import sScannerObject
@@ -72,6 +74,35 @@ class DatabaseEngine:
             # Zatwierdzenie transakcji, co zapisuje zmiany w bazie danych.
             conn.commit()
 
+    def reset_database(self):
+        """
+        Całkowicie resetuje bazę danych.
+        Usuwa istniejące tabele ('scanned_objects', 'import_log') i tworzy je od nowa.
+        Funkcja ta jest przeznaczona do użytku deweloperskiego, aby umożliwić
+        szybkie "czyszczenie" bazy danych przed ponownym testowaniem.
+        """
+        # Użycie 'with' zapewnia bezpieczne zarządzanie połączeniem.
+        with self._get_connection() as conn:
+            # Utworzenie kursora do wykonywania operacji SQL.
+            cursor = conn.cursor()
+            # Informacja dla użytkownika o rozpoczęciu procesu resetowania.
+            print("Rozpoczynanie resetowania bazy danych...")
+            # Polecenie SQL do usunięcia tabeli 'scanned_objects', jeśli istnieje.
+            # 'DROP TABLE' trwale usuwa tabelę i wszystkie jej dane.
+            cursor.execute("DROP TABLE IF EXISTS scanned_objects")
+            print("- Tabela 'scanned_objects' została usunięta.")
+            # Polecenie SQL do usunięcia tabeli 'import_log', jeśli istnieje.
+            cursor.execute("DROP TABLE IF EXISTS import_log")
+            print("- Tabela 'import_log' została usunięta.")
+            # Zatwierdzenie operacji usunięcia tabel.
+            conn.commit()
+            # Po usunięciu starych tabel, wywołujemy metodę create_schema(),
+            # aby odtworzyć strukturę bazy danych od zera.
+            print("Odtwarzanie schematu bazy danych...")
+            self.create_schema()
+            print("Resetowanie bazy danych zakończone pomyślnie.")
+
+
     def get_new_import_id(self, cursor: sqlite3.Cursor, source_path: str) -> int:
         """
         Generuje nowy, unikalny identyfikator dla sesji importu i zapisuje go w logu.
@@ -84,7 +115,7 @@ class DatabaseEngine:
             int: Nowy, unikalny identyfikator importu.
         """
         # Pobranie aktualnego czasu jako uniksowy timestamp.
-        import_timestamp = int(__import__('time').time())
+        import_timestamp = int(time.time())
         # Wstawienie nowego rekordu do tabeli logów.
         # Używamy NULL dla importId, ponieważ jest to klucz główny, który automatycznie się inkrementuje.
         cursor.execute("INSERT INTO import_log (importTimestamp, sourcePath) VALUES (?, ?)", (import_timestamp, source_path))
@@ -170,23 +201,28 @@ class DatabaseEngine:
             # - Zaczynamy od obiektu o zadanym obj_id i import_id.
             # - Następnie rekurencyjnie dołączamy jego rodziców (katalogi nadrzędne),
             #   aż dojdziemy do korzenia (gdzie objPathId = 0).
-            # - Na końcu łączymy nazwy w odwróconej kolejności, aby uzyskać pełną ścieżkę.
+            # - Dodajemy kolumnę 'level', aby móc posortować części ścieżki od korzenia do pliku.
             query = """
-                WITH RECURSIVE path_parts(id, name, parent_id) AS (
-                    SELECT objId, objName, objPathId
+                WITH RECURSIVE path_parts(id, name, parent_id, level) AS (
+                    SELECT objId, objName, objPathId, 0
                     FROM scanned_objects
                     WHERE objId = ? AND importId = ?
                     UNION ALL
-                    SELECT o.objId, o.objName, o.objPathId
+                    SELECT o.objId, o.objName, o.objPathId, pp.level + 1
                     FROM scanned_objects o
                     JOIN path_parts pp ON o.objId = pp.parent_id AND o.importId = ?
-                    WHERE o.objId != 0
                 )
-                SELECT name FROM path_parts ORDER BY id DESC;
+                SELECT name FROM path_parts ORDER BY level DESC;
             """
             # Wykonanie zapytania z podanymi parametrami.
             cursor.execute(query, (obj_id, import_id, import_id))
             # Pobranie wszystkich części ścieżki.
             parts = [row[0] for row in cursor.fetchall()]
-            # Połączenie części w jedną ścieżkę.
+
+            # Pobranie ścieżki źródłowej dla danego importu, aby uzyskać ścieżkę bezwzględną.
+            cursor.execute("SELECT sourcePath FROM import_log WHERE importId = ?", (import_id,))
+            source_path_row = cursor.fetchone()
+            
+            if source_path_row:
+                return os.path.join(source_path_row[0], *parts)
             return os.path.join(*parts)

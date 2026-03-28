@@ -6,8 +6,8 @@ from .filesystem_scanner import scan_filesystem
 def main():
     """
     Główna funkcja aplikacji, która obsługuje interfejs linii poleceń (CLI).
-    Umożliwia użytkownikowi inicjalizację bazy danych, skanowanie katalogów
-    oraz wyszukiwanie potencjalnych duplikatów plików.
+    Umożliwia użytkownikowi inicjalizację, resetowanie, skanowanie
+    oraz wyszukiwanie duplikatów w bazie danych.
     """
     # Tworzenie głównego parsera argumentów.
     # description - tekst wyświetlany w pomocy, wyjaśniający, co robi program.
@@ -19,9 +19,20 @@ def main():
 
     # --- Komenda 'init-db' ---
     # Tworzenie parsera dla komendy inicjalizującej bazę danych.
-    parser_init_db = subparsers.add_parser("init-db", help="Inicjalizuje lub czyści schemat bazy danych.")
+    parser_init_db = subparsers.add_parser("init-db", help="Inicjalizuje schemat bazy danych (jeśli nie istnieje).")
     # Argument określający ścieżkę do pliku bazy danych.
     parser_init_db.add_argument("--db", required=True, help="Ścieżka do pliku bazy danych SQLite.")
+
+    # --- NOWA Komenda 'reset-db' ---
+    # Tworzenie parsera dla komendy resetującej bazę danych.
+    # Ta komenda jest przeznaczona do celów deweloperskich i testowych.
+    parser_reset_db = subparsers.add_parser("reset-db", help="Całkowicie usuwa wszystkie dane i odtwarza schemat bazy danych.")
+    # Argument określający ścieżkę do pliku bazy danych, która ma zostać zresetowana.
+    parser_reset_db.add_argument("--db", required=True, help="Ścieżka do pliku bazy danych SQLite, która zostanie zresetowana.")
+    # Dodatkowy argument potwierdzający, aby zapobiec przypadkowemu usunięciu danych.
+    # Użycie 'action="store_true"' oznacza, że obecność flagi '--yes' ustawi wartość na True.
+    parser_reset_db.add_argument("--yes", action="store_true", help="Potwierdzenie operacji resetowania bazy danych. Wymagane do wykonania.")
+
 
     # --- Komenda 'scan' ---
     # Tworzenie parsera dla komendy skanującej system plików.
@@ -48,9 +59,21 @@ def main():
     # Jeśli użytkownik wybrał komendę 'init-db'
     if args.command == "init-db":
         print(f"Inicjalizowanie schematu w bazie danych: {args.db}")
-        # Wywołanie metody tworzącej schemat tabel.
+        # Wywołanie metody tworzącej schemat tabel (tylko jeśli nie istnieją).
         db_engine.create_schema()
         print("Schemat bazy danych został pomyślnie utworzony.")
+
+    # Jeśli użytkownik wybrał komendę 'reset-db'
+    elif args.command == "reset-db":
+        # Sprawdzenie, czy użytkownik użył flagi '--yes' jako zabezpieczenia.
+        if not args.yes:
+            # Jeśli flaga nie została podana, wyświetl ostrzeżenie i zakończ.
+            # To chroni przed przypadkowym i nieodwracalnym usunięciem danych.
+            print("BŁĄD: Operacja resetowania bazy danych jest nieodwracalna i wymaga potwierdzenia.")
+            print("Proszę dodać flagę '--yes' do polecenia, aby kontynuować.")
+            return
+        # Jeśli potwierdzenie zostało podane, wywołaj metodę resetującą bazę danych.
+        db_engine.reset_database()
 
     # Jeśli użytkownik wybrał komendę 'scan'
     elif args.command == "scan":
